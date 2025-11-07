@@ -2,28 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Prime Countertops - Remnant Live Inventory</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      font-family:'Inter', system-ui, sans-serif;
-      background:#f8f9fa;
-      color:#1a1a1a;
-      line-height:1.5;
+      font-family:'Inter', sans-serif;
+      background:#f9f9f9;
+      margin:0; padding:0;
+      color:#222;
     }
 
     header {
       background:#000;
       color:#ffd700;
       text-align:center;
-      padding:32px 16px;
+      padding:30px 20px;
     }
-    header h1 { font-size:30px; font-weight:600; }
-    header p { font-size:16px; opacity:0.9; margin-top:6px; }
+    header h1 { font-size:32px; margin-bottom:6px; }
+    header p { font-size:16px; opacity:0.85; }
 
-    .container { max-width:1200px; margin:0 auto; padding:24px; }
+    .container { max-width:1200px; margin:0 auto; padding:20px; }
 
     .search-container {
       text-align:center;
@@ -37,7 +36,7 @@
       border:1px solid #ccc;
       border-radius:8px;
       outline:none;
-      transition:border 0.2s;
+      transition:border-color .2s;
     }
     .search-input:focus { border-color:#ffd700; }
 
@@ -50,13 +49,13 @@
     .card {
       background:#fff;
       border-radius:16px;
+      box-shadow:0 3px 10px rgba(0,0,0,0.1);
       overflow:hidden;
-      box-shadow:0 4px 12px rgba(0,0,0,0.08);
-      text-align:center;
       transition:transform 0.2s;
       cursor:pointer;
     }
     .card:hover { transform:translateY(-4px); }
+
     .card img {
       width:100%;
       height:180px;
@@ -66,13 +65,12 @@
     .info {
       padding:14px;
       font-size:14px;
-      color:#333;
     }
     .info b { display:block; font-size:16px; margin-bottom:6px; }
 
     .reserve-btn {
       display:block;
-      margin:12px auto 16px;
+      margin:12px auto 18px;
       padding:10px 16px;
       background:#ffd700;
       color:#000;
@@ -84,14 +82,6 @@
     }
     .reserve-btn:hover { background:#e6c200; }
 
-    .empty {
-      grid-column:1/-1;
-      text-align:center;
-      color:#666;
-      font-size:18px;
-      padding:40px;
-    }
-
     footer {
       background:#000;
       color:#fff;
@@ -102,7 +92,33 @@
     footer a { color:#ffd700; text-decoration:none; font-weight:500; }
     footer a:hover { text-decoration:underline; }
 
-    /* Lightbox */
+    /* Loader */
+    .loader {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:80px 0;
+    }
+    .spinner {
+      border:6px solid #f3f3f3;
+      border-top:6px solid #ffd700;
+      border-radius:50%;
+      width:50px;
+      height:50px;
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform:rotate(0deg); }
+      100% { transform:rotate(360deg); }
+    }
+
+    .empty {
+      text-align:center;
+      color:#666;
+      font-size:18px;
+      padding:40px;
+    }
+
     .lightbox {
       display:none;
       position:fixed;
@@ -121,11 +137,6 @@
       border-radius:12px;
       box-shadow:0 8px 32px rgba(0,0,0,0.5);
     }
-
-    @media (max-width:768px) {
-      header h1 { font-size:24px; }
-      .search-input { max-width:100%; }
-    }
   </style>
 </head>
 <body>
@@ -141,7 +152,7 @@
   </div>
 
   <div class="remnant-grid" id="grid">
-    <p class="empty">Loading inventory...</p>
+    <div class="loader"><div class="spinner"></div></div>
   </div>
 </div>
 
@@ -152,96 +163,85 @@
 </footer>
 
 <div class="lightbox" id="lightbox">
-  <img id="lightbox-img" src="" alt="Enlarged view">
+  <img id="lightbox-img" src="" alt="Remnant view">
 </div>
 
 <script>
-  const proxyBase = "https://script.google.com/macros/s/AKfycbwM8cy9LOU0qvvKXvHzJPt99nn9__cuZ_TSmFQ6uW0Z2y7eG0pwjBClHWJ6jKRZaxVN/exec";
-  const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4PyEg3JWk2spDwAJhcD6e5qPxWf9HV4Vb9-sZs7M1_hBVgDKA8PIF4Z42wjR1LGYpxgjCDAQy1JE1/pub?gid=1308909698&output=csv";
-  let allCards = [];
+const proxyBase = "https://script.google.com/macros/s/AKfycbwM8cy9LOU0qvvKXvHzJPt99nn9__cuZ_TSmFQ6uW0Z2y7eG0pwjBClHWJ6jKRZaxVN/exec";
+const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4PyEg3JWk2spDwAJhcD6e5qPxWf9HV4Vb9-sZs7M1_hBVgDKA8PIF4Z42wjR1LGYpxgjCDAQy1JE1/pub?gid=1308909698&output=csv";
+let allCards = [];
 
-  function extractDriveId(url) {
-    if (!url) return null;
-    let match = url.match(/\/d\/([a-zA-Z0-9_-]{25,})/);
-    if (match) return match[1];
-    match = url.match(/open\\?id=([a-zA-Z0-9_-]{25,})/);
-    if (match) return match[1];
-    match = url.match(/id=([a-zA-Z0-9_-]{25,})/);
-    if (match) return match[1];
-    match = url.match(/([a-zA-Z0-9_-]{25,})/);
-    return match ? match[1] : null;
-  }
+function extractDriveId(url) {
+  if (!url) return null;
+  let m = url.match(/[-\w]{25,}/);
+  return m ? m[0] : null;
+}
 
-  fetch(csvUrl)
-    .then(res => res.text())
-    .then(csv => {
-      const rows = csv.trim().split(/\r?\n/).map(r => r.split(","));
-      const header = rows[0].map(h => h.trim().toLowerCase());
-      const grid = document.getElementById("grid");
-      let out = "";
-
-      rows.slice(1).forEach(row => {
-        const rowObj = {};
-        header.forEach((h, i) => rowObj[h] = (row[i] || "").trim());
-        if (!rowObj.status || rowObj.status.toLowerCase() !== "available") return;
-
-        const id = rowObj["id"];
-        const material = rowObj["material"];
-        const color = rowObj["color"];
-        const length = rowObj["lenght"]; // note: typo in CSV
-        const width = rowObj["width"];
-        const area = rowObj["usable area (sq/ft)"];
-        const rawUrl = rowObj["google link"];
-
-        const fileId = extractDriveId(rawUrl);
-        const photoUrl = fileId ? `${proxyBase}?id=${fileId}` : "https://placehold.co/300x180?text=No+Image";
-
-        const cardHtml = `
-          <div class="card" onclick="openLightbox('${photoUrl}')">
-            <img src="${photoUrl}" alt="${color}" onerror="this.src='https://placehold.co/300x180?text=No+Photo';">
-            <div class="info">
-              <b>${color}</b>
-              <div><strong>ID:</strong> ${id}</div>
-              <div><strong>Material:</strong> ${material}</div>
-              <div><strong>Size:</strong> ${length}" × ${width}"</div>
-              <div><strong>Usable Area:</strong> ${area} sq.ft</div>
-            </div>
-            <a href="mailto:sales@primecountertops.net?subject=Reserve%20${id}&body=Hi,%0A%0AI’m interested in this remnant:%0A%0AID:%20${id}%0AColor:%20${color}%0ASize:%20${length}%20×%20${width}%22%0A%0ACould you please provide more info?%0A%0AThank you!"
-               class="reserve-btn">Reserve Now</a>
-          </div>
-        `;
-        out += cardHtml;
-        allCards.push({ html: cardHtml, search: `${id} ${material} ${color} ${length} ${width} ${area}`.toLowerCase() });
-      });
-
-      grid.innerHTML = out || '<p class="empty">No remnants available at this time.</p>';
-    })
-    .catch(err => {
-      document.getElementById("grid").innerHTML = `<p class="empty" style="color:red;">Error loading inventory: ${err}</p>`;
-      console.error(err);
-    });
-
-  function filterCards() {
-    const query = document.getElementById("search").value.toLowerCase();
+fetch(csvUrl)
+  .then(res => res.text())
+  .then(csv => {
+    const rows = csv.trim().split(/\r?\n/).map(r => r.split(","));
+    const header = rows[0].map(h => h.trim().toLowerCase());
     const grid = document.getElementById("grid");
-    let filtered = "";
-    allCards.forEach(card => {
-      if (card.search.includes(query)) filtered += card.html;
-    });
-    grid.innerHTML = filtered || '<p class="empty">No results found.</p>';
-  }
+    let out = "";
 
-  function openLightbox(url) {
-    const lightbox = document.getElementById("lightbox");
-    const img = document.getElementById("lightbox-img");
-    img.src = url;
-    lightbox.classList.add("active");
-  }
-  document.getElementById("lightbox").addEventListener("click", () => {
-    document.getElementById("lightbox").classList.remove("active");
+    rows.slice(1).forEach(row => {
+      const r = {};
+      header.forEach((h, i) => r[h] = (row[i] || "").trim());
+      if (!r.status || r.status.toLowerCase() !== "available") return;
+
+      const id = r["id"];
+      const color = r["color"];
+      const material = r["material"];
+      const length = r["lenght"];
+      const width = r["width"];
+      const area = r["usable area (sq/ft)"];
+      const driveId = extractDriveId(r["google link"]);
+      const img = driveId ? `${proxyBase}?id=${driveId}` : "https://placehold.co/300x180?text=No+Image";
+
+      const card = `
+        <div class="card" onclick="openLightbox('${img}')">
+          <img src="${img}" alt="${color}" onerror="this.src='https://placehold.co/300x180?text=No+Photo';">
+          <div class="info">
+            <b>${color}</b>
+            <div><strong>ID:</strong> ${id}</div>
+            <div><strong>Material:</strong> ${material}</div>
+            <div><strong>Size:</strong> ${length}" × ${width}"</div>
+            <div><strong>Usable Area:</strong> ${area} sq.ft</div>
+          </div>
+          <a href="mailto:sales@primecountertops.net?subject=Reserve%20${id}&body=Hi,%0A%0AI’m interested in this remnant:%0A%0AID:%20${id}%0AColor:%20${color}%0ASize:%20${length}×${width}%22%0A%0ACould you please provide more info?%0A%0AThank you!"
+             class="reserve-btn">Reserve Now</a>
+        </div>`;
+      out += card;
+      allCards.push({ html: card, search: `${id} ${color} ${material} ${length} ${width} ${area}`.toLowerCase() });
+    });
+
+    grid.innerHTML = out || '<p class="empty">No remnants available.</p>';
+  })
+  .catch(err => {
+    document.getElementById("grid").innerHTML = `<p class="empty" style="color:red;">Error loading: ${err}</p>`;
+    console.error(err);
   });
 
-  setInterval(() => location.reload(), 180000);
+function filterCards() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const grid = document.getElementById("grid");
+  let filtered = "";
+  allCards.forEach(c => { if (c.search.includes(q)) filtered += c.html; });
+  grid.innerHTML = filtered || '<p class="empty">No results found.</p>';
+}
+
+function openLightbox(url) {
+  const lb = document.getElementById("lightbox");
+  const img = document.getElementById("lightbox-img");
+  img.src = url;
+  lb.classList.add("active");
+}
+document.getElementById("lightbox").addEventListener("click", () => {
+  document.getElementById("lightbox").classList.remove("active");
+});
+
+setInterval(() => location.reload(), 180000);
 </script>
 
 </body>
