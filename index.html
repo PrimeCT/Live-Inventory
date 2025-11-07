@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Remnant Live Inventory</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    * { box-sizing: border-box; }
     body { font-family:'Inter',sans-serif; background:#f8f9fa; color:#1a1a1a; margin:0; }
     header { background:#000; color:#ffd700; text-align:center; padding:32px 20px; }
     header h1 { margin:0; font-size:28px; font-weight:600; }
@@ -90,27 +90,28 @@ function extractDriveId(url) {
 }
 
 function loadInventory() {
-  fetch(csvUrl)
-    .then(r => r.text())
-    .then(csv => {
-      const rows = csv.trim().split(/\r?\n/).map(r => r.split(","));
+  Papa.parse(csvUrl, {
+    download: true,
+    header: true,
+    complete: function(results) {
+      const data = results.data;
       const grid = document.getElementById("grid");
       grid.innerHTML = "";
       allCards = [];
 
-      rows.slice(1).forEach(row => {
-        const id = row[0]?.trim();
-        const material = row[1]?.trim();
-        const color = row[2]?.trim();
-        const length = row[4]?.trim();
-        const width = row[5]?.trim();
-        const imageUrl = row[7]?.trim();
-        const status = (row[8] || "").toLowerCase();
+      data.forEach(row => {
+        const id = row["ID"]?.trim();
+        const material = row["Material"]?.trim();
+        const color = row["Color"]?.trim();
+        const length = row["Lenght"]?.trim();
+        const width = row["Width"]?.trim();
+        const imageUrl = row["Google link"]?.trim();
+        const status = (row["Status"] || "").toLowerCase();
 
-        if (status && status !== "available") return;
+        if (!id || (status && status !== "available")) return;
 
         const fileId = extractDriveId(imageUrl);
-        const photoUrl = fileId 
+        const photoUrl = fileId
           ? `${proxyBase}?id=${fileId}`
           : "https://placehold.co/300x180?text=No+Photo";
 
@@ -133,11 +134,12 @@ function loadInventory() {
       if (grid.innerHTML.trim() === "") {
         grid.innerHTML = '<p class="empty">No remnants available.</p>';
       }
-    })
-    .catch(err => {
-      console.error("Error loading inventory:", err);
-      document.getElementById("grid").innerHTML = '<p class="empty" style="color:red;">Error loading inventory. Please try again later.</p>';
-    });
+    },
+    error: function(err) {
+      console.error("CSV Load Error:", err);
+      document.getElementById("grid").innerHTML = '<p class="empty" style="color:red;">Error loading inventory.</p>';
+    }
+  });
 }
 
 function filterCards() {
