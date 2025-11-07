@@ -5,18 +5,10 @@ let allCards = [];
 
 function extractDriveId(url) {
   if (!url) return null;
-  url = url.trim();
-
-  // handle ?id= links (like your case)
-  let match = url.match(/id=([\w-]{25,})/);
+  let match = url.match(/[?&]id=([\w-]{25,})/); // handles open?id= and uc?id=
   if (match) return match[1];
-
-  // fallback for /d/.../view and uc?id= links
-  match = url.match(/[-\w]{25,}/);
-  if (match) return match[0];
-
-  console.warn("No Drive ID found for:", url);
-  return null;
+  match = url.match(/[-\w]{25,}/); // fallback for /d/.../view
+  return match ? match[0] : null;
 }
 
 fetch(csvUrl)
@@ -24,32 +16,54 @@ fetch(csvUrl)
   .then(csv => {
     const rows = csv.trim().split(/\r?\n/).map(r => r.split(","));
     const header = rows[0].map(h => h.trim().toLowerCase());
+
+    // helper to find index even if name is slightly off
+    function findCol(names) {
+      for (const n of names) {
+        const i = header.findIndex(h => h.includes(n.toLowerCase()));
+        if (i !== -1) return i;
+      }
+      return -1;
+    }
+
+    const idx = {
+      id: findCol(["id"]),
+      material: findCol(["material"]),
+      color: findCol(["color"]),
+      length: findCol(["length", "lenght"]),
+      width: findCol(["width"]),
+      area: findCol(["usable area"]),
+      link: findCol(["google link", "link"]),
+      status: findCol(["status"])
+    };
+
+    console.log("Column indexes:", idx);
+
     const grid = document.getElementById("grid");
     let out = "";
 
     rows.slice(1).forEach(row => {
-      const r = {};
-      header.forEach((h, i) => r[h] = (row[i] || "").trim());
-      if (!r.status || r.status.toLowerCase() !== "available") return;
+      const status = (row[idx.status] || "").toLowerCase();
+      if (!status.includes("available")) return;
 
-      const id = r["id"];
-      const color = r["color"];
-      const material = r["material"];
-      const length = r["lenght"];
-      const width = r["width"];
-      const area = r["usable area (sq/ft)"];
-      const link = r["google link"];
+      const id = row[idx.id] || "";
+      const color = row[idx.color] || "";
+      const material = row[idx.material] || "";
+      const length = row[idx.length] || "";
+      const width = row[idx.width] || "";
+      const area = row[idx.area] || "";
+      const link = row[idx.link] || "";
 
       const driveId = extractDriveId(link);
       const imgUrl = driveId
         ? `${proxyBase}?id=${driveId}`
         : "https://placehold.co/300x180?text=No+Photo";
 
-      console.log("Image URL:", imgUrl);
+      console.log(`Row ${id}:`, imgUrl);
 
       const card = `
         <div class="card" onclick="openLightbox('${imgUrl}')">
-          <img src="${imgUrl}" alt="${color}" 
+          <img src="${imgUrl}" alt="${color}"
                onerror="this.src='https://placehold.co/300x180?text=No+Photo'; this.onerror=null;">
           <div class="info">
             <b>${color}</b>
@@ -68,7 +82,9 @@ fetch(csvUrl)
     grid.innerHTML = out || '<p class="empty">No remnants available.</p>';
   })
   .catch(err => {
-    document.getElementById("grid").innerHTML = `<p class="empty" style="color:red;">Error loading: ${err}</p>`;
+    console.error("Error loading CSV:", err);
+    document.getElementById("grid").innerHTML =
+      `<p class="empty" style="color:red;">Error loading inventory: ${err.message}</p>`;
   });
 
 function filterCards() {
