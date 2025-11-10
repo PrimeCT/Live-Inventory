@@ -12,7 +12,6 @@
     /* Header Styles */
     header { background:#000; color:#ffd700; padding:32px 20px; text-align:center; }
     header h1 { margin:0; font-size:28px; }
-    /* Adjusted: Header paragraph color to white */
     header p { margin-top:8px; font-size:16px; opacity:1; color: #fff; } 
 
     /* Layout & Search */
@@ -24,7 +23,6 @@
     /* Card Styles */
     .card { background:#fff; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.08); overflow:hidden; text-align:center; transition:transform 0.2s; }
     .card:hover { transform:translateY(-4px); }
-    /* Adjusted: Added pointer for clickable image */
     .card img { width:100%; height:180px; object-fit:cover; cursor: pointer; } 
     .info { padding:12px; font-size:14px; }
     .info b { font-size:16px; display:block; margin-bottom:4px; }
@@ -126,18 +124,15 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-// --- Data Fetching and Card Generation (Fixing the Promise Rejection Error) ---
+// --- Data Fetching and Card Generation ---
 fetch(csvUrl)
   .then(res => {
-    // ⚠️ CORREÇÃO: Verificação se a resposta foi bem-sucedida (status 200)
     if (!res.ok) {
-        // Se falhar (ex: 404 ou 403), lança um erro para o bloco .catch
         throw new Error(`Failed to load CSV. Status: ${res.status} (${res.statusText}).`);
     }
     return res.text();
   })
   .then(csv => {
-    // Se o CSV for carregado com sucesso, o processamento continua aqui.
     const rows = csv.split(/\r?\n/).map(r => r.split(','));
     let html = '';
     rows.slice(1).forEach(row => {
@@ -183,7 +178,6 @@ fetch(csvUrl)
     document.getElementById('grid').innerHTML = html || '<p class="empty">No remnants available.</p>';
   })
   .catch(err => {
-    // ⚠️ CORREÇÃO: Bloco de tratamento de erro que será chamado se houver falha de rede ou 404/403.
     console.error("Erro ao carregar o inventário:", err);
     document.getElementById('grid').innerHTML = `<p class="empty" style="color:red;">Error loading inventory. ❌ ${err.message || 'Check CSV URL/Permissions.'}</p>`;
   });
